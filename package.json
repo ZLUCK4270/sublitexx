@@ -1,0 +1,31 @@
+{
+  "name": "sublitexx",
+  "version": "1.0.0",
+  "description": "��#\u0000 \u0000s\u0000u\u0000b\u0000l\u0000i\u0000t\u0000e\u0000x\u0000x\u0000\r\u0000 \u0000",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "prisma skills sync || exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZLUCK4270/sublitexx.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ZLUCK4270/sublitexx/issues"
+  },
+  "homepage": "https://github.com/ZLUCK4270/sublitexx#readme",
+  "devDependencies": {
+    "prisma": "^5.22.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0"
+  }
+}

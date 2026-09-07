@@ -1,0 +1,172 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EstadoPedido {
+  registro_abierto
+  lista_cerrada
+  diseno_aprobado
+  en_produccion
+  entregado
+}
+
+enum TipoProducto {
+  conjunto
+  camiseta
+  mixto
+}
+
+enum TipoTela {
+  winfresh
+  microfibra
+  algodon
+}
+
+enum TipoCorte {
+  estandar_varon
+  estandar_mujer
+  infantil
+  unisex
+}
+
+enum TipoManga {
+  corta
+  larga
+  tres_cuartos
+}
+
+enum TipoCuello {
+  v
+  redondo
+  camisero
+  neru
+}
+
+enum EstadoDiseno {
+  en_revision
+  aprobado
+}
+
+enum RolPrenda {
+  jugador
+  arquero
+}
+
+enum VistaMockup {
+  delantera
+  espalda
+}
+
+enum GeneroCorte {
+  Hombre
+  Mujer
+  Nino
+}
+
+enum EstadoPago {
+  Pendiente
+  Abonado
+  Pagado
+}
+
+model Pedido {
+  id_pedido                String                    @id @db.VarChar(20)
+  nombre_equipo            String                    @db.VarChar(100)
+  nombre_coordinador       String                    @db.VarChar(100)
+  telefono_coordinador     String?                   @db.VarChar(20)
+  estado_pedido            EstadoPedido
+  meta_jugadores           Int
+  precio_unitario_conjunto Decimal?                  @db.Decimal(10, 2)
+  precio_unitario_camiseta Decimal?                  @db.Decimal(10, 2)
+  fecha_entrega_acordada   DateTime?                 @db.Date
+  fecha_creacion           DateTime
+  fecha_cierre_lista       DateTime?
+  configuracion            ConfiguracionFabricacion?
+  mockups                  MockupDiseno[]
+  participantes            Participante[]
+  orden_produccion         OrdenProduccion?
+}
+
+model ConfiguracionFabricacion {
+  id                       Int          @id @default(autoincrement())
+  id_pedido                String       @unique @db.VarChar(20)
+  pedido                   Pedido       @relation(fields: [id_pedido], references: [id_pedido])
+  tipo_producto            TipoProducto
+  tipo_tela                TipoTela
+  tipo_corte               TipoCorte
+  tipo_manga               TipoManga
+  tipo_cuello              TipoCuello
+  conf_arquero             String?      @db.VarChar(255)
+  incluye_banderola        Boolean
+  incluye_banda_capitan    Boolean
+  incluye_escudo           Boolean
+  incluye_medias           Boolean
+  personalizacion_especial String?      @db.Text
+  notas_produccion         String?      @db.Text
+  estado_diseno            EstadoDiseno
+}
+
+model MockupDiseno {
+  id           Int         @id @default(autoincrement())
+  id_pedido    String      @db.VarChar(20)
+  pedido       Pedido      @relation(fields: [id_pedido], references: [id_pedido])
+  rol_prenda   RolPrenda
+  vista        VistaMockup
+  url_imagen   String      @db.Text
+  fecha_subida DateTime
+}
+
+model Participante {
+  id                       BigInt       @id @default(autoincrement())
+  id_pedido                String       @db.VarChar(20)
+  pedido                   Pedido       @relation(fields: [id_pedido], references: [id_pedido])
+  nombre_jugador           String?      @db.VarChar(100)
+  nombre_camiseta          String       @db.VarChar(30)
+  numero_camiseta          Int
+  talla_camiseta           String       @db.VarChar(10)
+  talla_short              String?      @db.VarChar(10)
+  genero_corte             GeneroCorte
+  tipo_producto            TipoProducto
+  es_arquero               Boolean
+  estado_pago              EstadoPago
+  excepciones              String?      @db.VarChar(255)
+  permite_numero_duplicado Boolean
+  fecha_registro           DateTime
+
+  @@unique([id_pedido, numero_camiseta])
+}
+
+model OrdenProduccion {
+  id                         Int              @id @default(autoincrement())
+  id_pedido                  String           @unique @db.VarChar(20)
+  pedido                     Pedido           @relation(fields: [id_pedido], references: [id_pedido])
+  id_taller                  Int
+  taller                     TallerConfeccion @relation(fields: [id_taller], references: [id])
+  total_camisetas_calculadas Int
+  total_shorts_calculados    Int
+  total_arqueros_calculados  Int
+  metros_tela_requeridos     Decimal          @db.Decimal(10, 2)
+  costo_metro_tela           Decimal          @db.Decimal(10, 2)
+  costo_fijo_adicional       Decimal          @db.Decimal(10, 2)
+  costo_total_tela           Decimal          @db.Decimal(10, 2)
+  costo_total_confeccion     Decimal          @db.Decimal(10, 2)
+  costo_total_pedido         Decimal          @db.Decimal(10, 2)
+  ingreso_total_venta        Decimal          @db.Decimal(10, 2)
+  utilidad_neta_estimada     Decimal          @db.Decimal(10, 2)
+  margen_ganancia_porcentaje Decimal          @db.Decimal(5, 2)
+}
+
+model TallerConfeccion {
+  id                     Int               @id @default(autoincrement())
+  nombre_taller          String            @db.VarChar(100)
+  costo_costura_camiseta Decimal           @db.Decimal(10, 2)
+  costo_costura_short    Decimal           @db.Decimal(10, 2)
+  telefono_contacto      String?           @db.VarChar(20)
+  activo                 Boolean
+  ordenes_produccion     OrdenProduccion[]
+}
