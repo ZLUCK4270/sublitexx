@@ -38,19 +38,30 @@ let orderConfig = {
     }
 };
 
-// Sincronización con LocalStorage
-function loadParticipants() {
-    const data = localStorage.getItem('sipes_participants');
-    if (data) {
-        participants = JSON.parse(data);
-    } else {
-        // Datos por defecto si está vacío
-        participants = [
-            { id: 1, playerName: "Juan Pérez", shirtName: "JUAN P.", shirtNumber: 10, size: "M", genderCut: "Hombre", productType: "conjunto", paymentStatus: "Pagado", exceptions: "" },
-            { id: 2, playerName: "Carlos López", shirtName: "CARLOS", shirtNumber: 7, size: "L", genderCut: "Mujer", productType: "conjunto", paymentStatus: "Abonado", exceptions: "Mangas cortas" },
-            { id: 3, playerName: "Andrés Silva", shirtName: "A. SILVA", shirtNumber: 9, size: "M", genderCut: "Hombre", productType: "conjunto", paymentStatus: "Pendiente", exceptions: "" },
-        ];
-        saveParticipantsToStore();
+// Sincronización con la API Backend
+const ID_PEDIDO = 'SUB-00842';
+
+async function loadParticipants() {
+    try {
+        const res = await fetch(`/api/pedidos/${ID_PEDIDO}/participantes`);
+        if (res.ok) {
+            const data = await res.json();
+            // Adaptar estructura de BD al frontend
+            participants = data.map(p => ({
+                id: p.id,
+                playerName: p.nombre_jugador,
+                shirtName: p.nombre_camiseta,
+                shirtNumber: p.numero_camiseta,
+                size: p.talla_camiseta,
+                genderCut: p.genero_corte,
+                shortSize: p.talla_short,
+                isGoalkeeper: p.es_arquero,
+                productType: p.tipo_producto,
+                paymentStatus: p.estado_pago || 'Pendiente'
+            }));
+        }
+    } catch(e) {
+        console.error("Error al cargar participantes", e);
     }
     
     const expData = localStorage.getItem('sipes_expected');
@@ -75,7 +86,8 @@ function loadParticipants() {
 }
 
 function saveParticipantsToStore() {
-    localStorage.setItem('sipes_participants', JSON.stringify(participants));
+    // Los participantes individuales ya no se guardan aquí, se hace vía API POST/PUT.
+    // Solo guardamos configuración local.
     localStorage.setItem('sipes_expected', expectedPlayers.toString());
     localStorage.setItem('sipes_unit_price_conjunto', unitPriceConjunto.toString());
     localStorage.setItem('sipes_unit_price_camiseta', unitPriceCamiseta.toString());
@@ -267,8 +279,8 @@ const expectedPlayersInput = document.getElementById('expectedPlayersInput');
 const btnSaveExpected = document.getElementById('btnSaveExpected');
 
 // Inicialización
-function init() {
-    loadParticipants();
+async function init() {
+    await loadParticipants();
     loadOrderConfig();
     if(expectedPlayersInput) expectedPlayersInput.value = expectedPlayers;
     const deliveryDateInput = document.getElementById('deliveryDateInput');
@@ -726,7 +738,7 @@ function closeModal() {
 }
 
 // Lógica CRUD
-function saveParticipant() {
+async function saveParticipant() {
     const pName = document.getElementById('playerName').value.trim();
     const sName = document.getElementById('shirtName').value.toUpperCase().trim();
     const sNumber = parseInt(document.getElementById('shirtNumber').value);
@@ -741,7 +753,6 @@ function saveParticipant() {
     const gCut = document.getElementById('genderCut') ? document.getElementById('genderCut').value : 'Hombre';
     const shortSize = (pType === 'conjunto' && document.getElementById('shortSize')) ? document.getElementById('shortSize').value : '';
     const isGoalie = document.getElementById('isGoalkeeper') ? document.getElementById('isGoalkeeper').checked : false;
-    const exceptions = document.getElementById('exceptions') ? document.getElementById('exceptions').value.trim() : '';
     const allowDuplicate = document.getElementById('allowDuplicateNum').checked;
     const pStatus = document.getElementById('paymentStatus') ? document.getElementById('paymentStatus').value : 'Pendiente';
 
@@ -750,52 +761,46 @@ function saveParticipant() {
         return;
     }
 
-    // Validación de unicidad
-    if (!allowDuplicate) {
-        const isDuplicate = participants.some(p => p.shirtNumber === sNumber && p.id !== editingId);
-        if (isDuplicate) {
-            alert(`El número ${sNumber} ya está en uso. Si es una excepción autorizada, marque la casilla "Autorizar número duplicado".`);
+    try {
+        const url = editingId ? \`/api/participantes/\${editingId}\` : \`/api/participantes\`;
+        const method = editingId ? 'PUT' : 'POST';
+        
+        const payload = {
+            id_pedido: ID_PEDIDO,
+            nombre_jugador: pName,
+            nombre_camiseta: sName,
+            numero_camiseta: sNumber,
+            talla_camiseta: size,
+            talla_short: shortSize || null,
+            genero_corte: gCut,
+            tipo_producto: pType,
+            es_arquero: isGoalie,
+            estado_pago: pStatus
+        };
+
+        const res = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await res.json();
+
+        if (!res.ok) {
+            alert(\`Error: \${result.error}\`);
             return;
         }
-    }
 
-    if (editingId) {
-        const index = participants.findIndex(p => p.id === editingId);
-        if (index > -1) {
-            participants[index] = {
-                id: editingId,
-                playerName: pName,
-                shirtName: sName,
-                shirtNumber: sNumber,
-                size: size,
-                genderCut: gCut,
-                shortSize: shortSize,
-                isGoalkeeper: isGoalie,
-                productType: pType,
-                paymentStatus: pStatus,
-                exceptions: exceptions
-            };
-        }
-    } else {
-        participants.push({
-            id: Date.now(),
-            playerName: pName,
-            shirtName: sName,
-            shirtNumber: sNumber,
-            size: size,
-            genderCut: gCut,
-            shortSize: shortSize,
-            isGoalkeeper: isGoalie,
-            productType: pType,
-            paymentStatus: pStatus,
-            exceptions: exceptions
-        });
+        // Recargar desde la BD y renderizar
+        await loadParticipants();
+        closeModal();
+        renderTable();
+        updateSummary();
+        
+    } catch(e) {
+        console.error(e);
+        alert('Ocurrió un error al guardar en la base de datos.');
     }
-
-    saveParticipantsToStore();
-    closeModal();
-    renderTable();
-    updateSummary();
 }
 
 window.editParticipant = function(id) {

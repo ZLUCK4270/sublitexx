@@ -1,12 +1,16 @@
 version: "3.8"
 
 services:
-  frontend:
+  web:
     build: .
     container_name: sublitexx-web
     ports:
       - "8080:80"
     restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgresql://admin:adminpassword@db:5432/sublitexx?schema=public
 
   db:
     image: postgres:15-alpine

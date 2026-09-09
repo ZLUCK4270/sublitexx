@@ -11,11 +11,29 @@ const proveedores = {
     'B': { nombre: 'Premium', costoCamiseta: 5.50, costoShort: 4.00 }
 };
 
-function initProduccion() {
-    // 1. Cargar datos de la única fuente de verdad (localStorage)
-    const data = localStorage.getItem('sipes_participants');
-    if (data) {
-        participants = JSON.parse(data);
+const ID_PEDIDO = 'SUB-00842';
+
+async function initProduccion() {
+    // 1. Cargar datos de la única fuente de verdad (API Backend)
+    try {
+        const res = await fetch(`/api/pedidos/${ID_PEDIDO}/participantes`);
+        if (res.ok) {
+            const data = await res.json();
+            participants = data.map(p => ({
+                id: p.id,
+                playerName: p.nombre_jugador,
+                shirtName: p.nombre_camiseta,
+                shirtNumber: p.numero_camiseta,
+                size: p.talla_camiseta,
+                genderCut: p.genero_corte,
+                shortSize: p.talla_short,
+                isGoalkeeper: p.es_arquero,
+                productType: p.tipo_producto,
+                paymentStatus: p.estado_pago || 'Pendiente'
+            }));
+        }
+    } catch (e) {
+        console.error("Error al cargar participantes desde API", e);
     }
 
     // 2. Procesar datos para Producción
